@@ -1,2 +1,16 @@
-# EntWatch-Maker
-Can be used to create a basic EntWatch config for a map
+# EntWatch Maker
+
+Creates a basic EntWatch config for the current map.  
+This will generate the number of blocks needed for all the items in a map and will fill in some information about them.
+
+### How to use
+- Install [Sourcemod 1.12.6922](https://sm.alliedmods.net/downloads.php?branch=dev) or above
+- Install this plugin
+- Load the map you want to create a config for
+- Use command `sm_ewmake`
+- Tweak the generated values for name, color, mode, cooldown, maxuses
+- Done
+
+### Configuration
+`ewmaker_path`  - a path (relative to `csgo/`) where the configs will generate, you need to create this directory if it doesn't exist  
+`ewmaker_style` - style of config to generate (0 = [GFL Style](https://github.com/gflclan-cs-go-ze/ZE-Configs#entwatch), 1 = [DarkerZ Style](https://github.com/darkerz7/CSGO-Plugins/blob/master/EntWatch_DZ/cfg/sourcemod/entwatch/maps/template.txt))
