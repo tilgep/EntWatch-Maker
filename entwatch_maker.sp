@@ -223,6 +223,7 @@ public int LoadConfig()
         file.WriteLine("\t\t\"hammerid\"        \"%s\"", hammer);
 
         file.WriteLine("\t\t");
+        file.WriteLine("\t\t// [EntWatchMaker] Settings below need changing.");
         file.WriteLine("\t\t\"mode\"            \"0\" // 0-none, 1-spam, 2-cd, 3-uses, 4-use w/ cd, 5-cd after uses, 6-counter stop@min, 7-counter stop@max");
         if(style.IntValue==1) file.WriteLine("\t\t\"mode2\"           \"0\"");
         file.WriteLine("\t\t");
@@ -240,7 +241,7 @@ public int LoadConfig()
         }
         
         file.WriteLine("\t\t//\"buttonid\"        \"%s\" //hammerid of a detected button", bhammer);
-        if(style.IntValue==1) file.WriteLine("\t\t//\"buttonid2\"       \"\"", bhammer);
+        if(style.IntValue==1) file.WriteLine("\t\t//\"buttonid2\"       \"\"");
         file.WriteLine("\t\t\"trigger\"         \"0\"");
 
         file.WriteLine("\t\t");
