@@ -16,4 +16,4 @@ Recommended to only use on test servers as the command is available for all play
 
 ## Configuration
 `ewmaker_path`  - a path (relative to `csgo/`) where the configs will generate, create this directory if it doesn't exist  
-`ewmaker_style` - style of config to generate (0 = [GFL Style](https://github.com/gflclan-cs-go-ze/ZE-Configs#entwatch), 1 = [DarkerZ Style](https://github.com/darkerz7/CSGO-Plugins/blob/master/EntWatch_DZ/cfg/sourcemod/entwatch/maps/template.txt))
+`ewmaker_style` - style of config to generate (0 = [GFL Style](https://github.com/gflclan-cs-go-ze/ZE-Configs#entwatch), 1 = [DarkerZ Style](https://github.com/darkerz7/CSGO-Plugins/blob/master/EntWatch_DZ/cfg/sourcemod/entwatch/maps/template.txt), 2 = Mapeadores MapTrack)
