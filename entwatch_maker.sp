@@ -8,12 +8,23 @@ public Plugin myinfo =
     name = "EntWatch Config Maker",
     author = "tilgep",
     description = "Makes a basic EntWatch config for the current map.",
-    version = "1.0",
+    version = "1.2",
     url = "https://github.com/tilgep/EntWatch-Maker"
 };
 
+enum Mode
+{
+    GFL = 0,
+    DarkerZ,
+    Mapea,
+}
+
+#define MODE_INFO "0-none, 1-spam, 2-cd, 3-uses, 4-use w/ cd, 5-cd after uses, 6-counter stop@min, 7-counter stop@max"
+#define DEFAULT_DIR_PERMS FPERM_O_READ|FPERM_O_EXEC|FPERM_G_READ|FPERM_G_EXEC|FPERM_U_READ|FPERM_U_WRITE|FPERM_U_EXEC
+Mode mode;
 char path[PLATFORM_MAX_PATH];
-char mapeaMapName[128];
+char g_currentmap[128];
+
 ArrayList weps;
 ArrayList buts;
 ArrayList filt;
@@ -27,34 +38,65 @@ public void OnPluginStart()
     buts = CreateArray();
     filt = CreateArray();
     dire = CreateConVar("ewmaker_path", "addons/sourcemod/configs/entwatch_maker", "Path to store generated configs in. Relative to csgo/", _, true, 0.0, true, 1.0);
+    dire.AddChangeHook(Cvar_Changed);
+
     style = CreateConVar("ewmaker_style", "1", "Options to include (0=GFL style, 1=DarkerZ Style, 2=Mapea MapTrack style)", _, true, 0.0, true, 2.0);
+    style.AddChangeHook(Cvar_Changed);
+
     RegConsoleCmd("sm_ewmake", Command_Make);
     AutoExecConfig();
 }
 
+public void Cvar_Changed(ConVar cvar, const char[] oldVal, const char[] newVal)
+{
+    if(cvar == dire)
+    {
+        dire.GetString(path, PLATFORM_MAX_PATH);
+        if(!DirExists(path)) 
+        {
+            if(!CreateDirectory(path, DEFAULT_DIR_PERMS))
+            {
+                LogError("Failed to create directory %s", path);
+            }
+            else
+            {
+                LogMessage("Created directory %s", path);
+            }
+        }
+        Format(path, PLATFORM_MAX_PATH, "%s/%s.cfg", path, g_currentmap);
+    }
+    else if(cvar == style)
+    {
+        mode = view_as<Mode>(style.IntValue);
+    }
+}
+
 public void OnMapInit(const char[] mapName)
 {
+    mode = view_as<Mode>(style.IntValue);
     dire.GetString(path, PLATFORM_MAX_PATH);
+    if(!DirExists(path)) 
+    {
+        if(!CreateDirectory(path, DEFAULT_DIR_PERMS))
+        {
+            LogError("Failed to create directory %s", path);
+        }
+        else
+        {
+            LogMessage("Created directory %s", path);
+        }
+    }
     Format(path, PLATFORM_MAX_PATH, "%s/%s.cfg", path, mapName);
-    strcopy(mapeaMapName, sizeof(mapeaMapName), mapName);
+    strcopy(g_currentmap, sizeof(g_currentmap), mapName);
 }
 
 public Action Command_Make(int client, int args)
 {
     switch(LoadConfig())
     {
-        case 0:
-        {
-            ReplyToCommand(client, "Failed to create config file %s", path);
-        }
-        case 1:
-        {
-            ReplyToCommand(client, "No items found in the map!");
-        }
-        case 2:
-        {
-            ReplyToCommand(client, "Config created at %s", path);
-        }
+        case 0: ReplyToCommand(client, "Failed to create config file %s", path);
+        case 1: ReplyToCommand(client, "No items found in the map!");
+        case 2: ReplyToCommand(client, "Config created at %s", path);
     }
     return Plugin_Handled;
 }
@@ -114,7 +156,15 @@ public int LoadConfig()
         return 1;
     }
 
-    file.WriteLine("\"%s\"\n{", style.IntValue==2 ? mapeaMapName : "entities");
+    if(mode == Mapea)
+    {
+        file.WriteLine("\"%s\"\n{", g_currentmap);
+    }
+    else
+    {
+        file.WriteLine("\"entities\"\n{", g_currentmap);
+    }
+
     char key[64];
     char val[128];
     char targe[64];
@@ -164,7 +214,6 @@ public int LoadConfig()
             continue;
         }
 
-        
         for(int b = gameui ? buts.Length : 0; b < buts.Length; b++)
         {
             button = EntityLump.Get(buts.Get(b));
@@ -206,83 +255,96 @@ public int LoadConfig()
 
         file.WriteLine("\t\"%d\"", index);
         file.WriteLine("\t{");
-        if (style.IntValue!=2) // GFL & Darkerz styles
+
+        switch(mode)
         {
-            file.WriteLine("\t\t\"name\"            \"%s\" //currently weapon targetname (change me)", targe);
-            file.WriteLine("\t\t\"shortname\"       \"%s\" //currently weapon targetname (change me)", targe);
-            file.WriteLine("\t\t\"color\"           \"{default}\" // Change me");
-            file.WriteLine("\t\t");
-            file.WriteLine("\t\t\"buttonclass\"     \"%s\"", gameui ? "game_ui" : "func_button");
-            if(style.IntValue==1) file.WriteLine("\t\t\"buttonclass2\"    \"\"");
-            file.WriteLine("\t\t");
-            file.WriteLine("\t\t\"filtername\"      \"%s\"", filter);
-            if(style.IntValue==0) file.WriteLine("\t\t\"hasfiltername\"   \"%s\"", filter[0] ? "true" : "false");
-
-            file.WriteLine("\t\t\"blockpickup\"     \"false\"");
-            file.WriteLine("\t\t\"allowtransfer\"   \"%s\"", knife ? "false" : "true");
-            file.WriteLine("\t\t\"forcedrop\"       \"%s\"", knife ? "false" : "true");
-
-            file.WriteLine("\t\t\"chat\"            \"true\"");
-            if(style.IntValue==1) file.WriteLine("\t\t\"chat_uses\"       \"true\"");
-
-            file.WriteLine("\t\t\"hud\"             \"true\"");
-
-            file.WriteLine("\t\t\"hammerid\"        \"%s\"", hammer);
-
-            file.WriteLine("\t\t");
-            file.WriteLine("\t\t// [EntWatchMaker] Settings below need changing.");
-            file.WriteLine("\t\t\"mode\"            \"0\" // 0-none, 1-spam, 2-cd, 3-uses, 4-use w/ cd, 5-cd after uses, 6-counter stop@min, 7-counter stop@max");
-            if(style.IntValue==1) file.WriteLine("\t\t\"mode2\"           \"0\"");
-            file.WriteLine("\t\t");
-            file.WriteLine("\t\t\"cooldown\"        \"0\" //mode = 2/4/5");
-            if(style.IntValue==1) file.WriteLine("\t\t\"cooldown2\"       \"0\" //mode2 = 2/4/5");
-            file.WriteLine("\t\t\"maxuses\"         \"0\" //mode = 3/4/5");
-            if(style.IntValue==1) file.WriteLine("\t\t\"maxuses2\"        \"0\" //mode2 = 3/4/5");
-            file.WriteLine("\t\t");
-            
-            if(style.IntValue==0) file.WriteLine("\t\t\"mathid\"          \"0\" //mode 6/7");
-            else 
+            case GFL:
             {
+                file.WriteLine("\t\t\"name\"            \"%s\" //currently weapon targetname (change me)", targe);
+                file.WriteLine("\t\t\"shortname\"       \"%s\" //currently weapon targetname (change me)", targe);
+                file.WriteLine("\t\t\"color\"           \"{default}\" // Change me");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"buttonclass\"     \"%s\"", gameui ? "game_ui" : "func_button");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"filtername\"      \"%s\"", filter);
+                file.WriteLine("\t\t\"blockpickup\"     \"false\"");
+                file.WriteLine("\t\t\"allowtransfer\"   \"%s\"", knife ? "false" : "true");
+                file.WriteLine("\t\t\"forcedrop\"       \"%s\"", knife ? "false" : "true");
+                file.WriteLine("\t\t\"chat\"            \"true\"");
+                file.WriteLine("\t\t\"hud\"             \"true\"");
+                file.WriteLine("\t\t\"hammerid\"        \"%s\"", hammer);
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t// [EntWatchMaker] Settings below may need changing.");
+                file.WriteLine("\t\t\"mode\"            \"0\" // %s", MODE_INFO);
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"cooldown\"        \"0\" //mode = 2/4/5");
+                file.WriteLine("\t\t\"maxuses\"         \"0\" //mode = 3/4/5");
+                file.WriteLine("\t\t\"mathid\"          \"0\" //mode 6/7");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t//\"buttonid\"        \"%s\" //hammerid of a detected button", bhammer);
+                file.WriteLine("\t\t\"trigger\"         \"0\"");
+                file.WriteLine("\t\t\"physbox\"         \"false\"");
+                file.WriteLine("\t\t\"maxamount\"       \"1\"");
+            }
+            case DarkerZ:
+            {
+                file.WriteLine("\t\t\"name\"            \"%s\" //currently weapon targetname (change me)", targe);
+                file.WriteLine("\t\t\"shortname\"       \"%s\" //currently weapon targetname (change me)", targe);
+                file.WriteLine("\t\t\"color\"           \"{default}\" // Change me");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"buttonclass\"     \"%s\"", gameui ? "game_ui" : "func_button");
+                file.WriteLine("\t\t\"buttonclass2\"    \"\"");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"filtername\"      \"%s\"", filter);
+                file.WriteLine("\t\t\"blockpickup\"     \"false\"");
+                file.WriteLine("\t\t\"allowtransfer\"   \"%s\"", knife ? "false" : "true");
+                file.WriteLine("\t\t\"forcedrop\"       \"%s\"", knife ? "false" : "true");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"chat\"            \"true\"");
+                file.WriteLine("\t\t\"chat_uses\"       \"true\"");
+                file.WriteLine("\t\t\"hud\"             \"true\"");
+                file.WriteLine("\t\t\"hammerid\"        \"%s\"", hammer);
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t// [EntWatchMaker] Settings below may need changing.");
+                file.WriteLine("\t\t\"mode\"            \"0\" // %s", MODE_INFO);
+                file.WriteLine("\t\t\"mode2\"           \"0\"");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"cooldown\"        \"0\" //mode = 2/4/5");
+                file.WriteLine("\t\t\"cooldown2\"       \"0\" //mode2 = 2/4/5");
+                file.WriteLine("\t\t\"maxuses\"         \"0\" //mode = 3/4/5");
+                file.WriteLine("\t\t\"maxuses2\"        \"0\" //mode2 = 3/4/5");
                 file.WriteLine("\t\t\"energyid\"        \"0\" //mode = 6/7");
                 file.WriteLine("\t\t\"energyid2\"       \"0\" //mode2 = 6/7");
-            }
-            
-            file.WriteLine("\t\t//\"buttonid\"        \"%s\" //hammerid of a detected button", bhammer);
-            if(style.IntValue==1) file.WriteLine("\t\t//\"buttonid2\"       \"\"");
-            file.WriteLine("\t\t\"trigger\"         \"0\"");
-
-            file.WriteLine("\t\t");
-            file.WriteLine("\t\t\"physbox\"         \"false\"");
-            if(style.IntValue==0) file.WriteLine("\t\t\"maxamount\"       \"1\"");
-
-            if(style.IntValue==1)
-            {
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t//\"buttonid\"        \"%s\" //hammerid of a detected button", bhammer);
+                file.WriteLine("\t\t//\"buttonid2\"       \"\"");
+                file.WriteLine("\t\t\"trigger\"         \"0\"");
+                file.WriteLine("\t\t\"physbox\"         \"false\"");
                 file.WriteLine("\t\t");
                 file.WriteLine("\t\t\"pt_spawner\"      \"\"");
                 file.WriteLine("\t\t\"use_priority\"    \"true\"");
             }
-        } else // Mapea Maptrack style
-        {
-            file.WriteLine("\t\t\"hammerid\"        \"%s\"", hammer);
-            file.WriteLine("\t\t\"name\"            \"%s\" //currently weapon targetname (change me)", targe);
-            file.WriteLine("\t\t\"shortname\"       \"%s\" //currently weapon targetname (change me)", targe);
-            file.WriteLine("\t\t\"color\"           \"{WHITE}\" // Change me");
-            file.WriteLine("\t\t\"glowcolor\"       \"255 255 255 255\" // Change me");
-            file.WriteLine("\t\t\"maxamount\"       \"\"");
-            file.WriteLine("\t\t");
-            
-            file.WriteLine("\t\t\"buttonclass\"     \"%s\"", gameui ? "game_ui" : "func_button");
-            file.WriteLine("\t\t\"filterid\"        \"%s\"", filterid);
-            file.WriteLine("\t\t\"passive\"         \"\"");
-            file.WriteLine("\t\t\"blockpickup\"     \"\"");
-            file.WriteLine("\t\t\"forcedrop\"       \"true\"");
-            file.WriteLine("\t\t\"maxuses\"         \"-1\"");
-            file.WriteLine("\t\t\"cooldown\"        \"\"");
-            file.WriteLine("\t\t\"ignoredactions\"  \"\"");
-            file.WriteLine("\t\t");
-            
-            file.WriteLine("\t\t\"chat\"            \"true\"");
-            file.WriteLine("\t\t\"hud\"             \"true\"");
+            case Mapea:
+            {
+                file.WriteLine("\t\t\"hammerid\"        \"%s\"", hammer);
+                file.WriteLine("\t\t\"name\"            \"%s\" //currently weapon targetname (change me)", targe);
+                file.WriteLine("\t\t\"shortname\"       \"%s\" //currently weapon targetname (change me)", targe);
+                file.WriteLine("\t\t\"color\"           \"{WHITE}\" // Change me");
+                file.WriteLine("\t\t\"glowcolor\"       \"255 255 255 255\" // Change me");
+                file.WriteLine("\t\t\"maxamount\"       \"\"");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"buttonclass\"     \"%s\"", gameui ? "game_ui" : "func_button");
+                file.WriteLine("\t\t\"filterid\"        \"%s\"", filterid);
+                file.WriteLine("\t\t\"passive\"         \"\"");
+                file.WriteLine("\t\t\"blockpickup\"     \"\"");
+                file.WriteLine("\t\t\"forcedrop\"       \"true\"");
+                file.WriteLine("\t\t\"maxuses\"         \"-1\"");
+                file.WriteLine("\t\t\"cooldown\"        \"\"");
+                file.WriteLine("\t\t\"ignoredactions\"  \"\"");
+                file.WriteLine("\t\t");
+                file.WriteLine("\t\t\"chat\"            \"true\"");
+                file.WriteLine("\t\t\"hud\"             \"true\"");
+            }
         }
         
         file.WriteLine("\t}");
