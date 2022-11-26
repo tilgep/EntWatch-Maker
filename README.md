@@ -7,7 +7,7 @@ This will generate the number of blocks needed for all the items in a map and wi
 Recommended to only use on test servers as the command is available for all players.  
 
 ## How to use
-- Install [Sourcemod 1.12.6922](https://sm.alliedmods.net/downloads.php?branch=dev) or above
+- Install the latest [Sourcemod](https://sm.alliedmods.net/downloads.php?branch=stable)
 - Install this plugin
 - Load the map you want to create a config for
 - Make sure that the directory exists before creating a config file
