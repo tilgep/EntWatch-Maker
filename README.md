@@ -10,7 +10,6 @@ Recommended to only use on test servers as the command is available for all play
 - Install the latest [Sourcemod](https://sm.alliedmods.net/downloads.php?branch=stable)
 - Install this plugin
 - Load the map you want to create a config for
-- Make sure that the directory exists before creating a config file
 - Use command `sm_ewmake`
 - Tweak the generated values for name, color, mode, cooldown, maxuses
 - Done
