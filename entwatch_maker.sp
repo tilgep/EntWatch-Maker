@@ -8,7 +8,7 @@ public Plugin myinfo =
     name = "EntWatch Config Maker",
     author = "tilgep",
     description = "Makes a basic EntWatch config for the current map.",
-    version = "1.3",
+    version = "1.3.1",
     url = "https://github.com/tilgep/EntWatch-Maker"
 };
 
@@ -304,6 +304,7 @@ public int LoadConfig()
 
                 delete template;
             }
+            if(!found) templatename[0] = '\0';
         }
 
         file.WriteLine("\t\"%d\"", index);
