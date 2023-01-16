@@ -8,7 +8,7 @@ public Plugin myinfo =
     name = "EntWatch Config Maker",
     author = "tilgep",
     description = "Makes a basic EntWatch config for the current map.",
-    version = "1.2",
+    version = "1.3",
     url = "https://github.com/tilgep/EntWatch-Maker"
 };
 
@@ -28,15 +28,20 @@ char g_currentmap[128];
 ArrayList weps;
 ArrayList buts;
 ArrayList filt;
+ArrayList temp;
+ArrayList math;
 
 ConVar dire;
 ConVar style;
 
 public void OnPluginStart()
 {
-    weps = CreateArray();
-    buts = CreateArray();
-    filt = CreateArray();
+    weps = new ArrayList();
+    buts = new ArrayList();
+    filt = new ArrayList();
+    temp = new ArrayList();
+    math = new ArrayList();
+
     dire = CreateConVar("ewmaker_path", "addons/sourcemod/configs/entwatch_maker", "Path to store generated configs in. Relative to csgo/", _, true, 0.0, true, 1.0);
     dire.AddChangeHook(Cvar_Changed);
 
@@ -71,7 +76,7 @@ public void Cvar_Changed(ConVar cvar, const char[] oldVal, const char[] newVal)
     }
 }
 
-public void OnMapInit(const char[] mapName)
+public void OnConfigsExecuted()
 {
     mode = view_as<Mode>(style.IntValue);
     dire.GetString(path, PLATFORM_MAX_PATH);
@@ -86,6 +91,8 @@ public void OnMapInit(const char[] mapName)
             LogMessage("Created directory %s", path);
         }
     }
+    char mapName[PLATFORM_MAX_PATH];
+    GetCurrentMap(mapName, sizeof(mapName));
     Format(path, PLATFORM_MAX_PATH, "%s/%s.cfg", path, mapName);
     strcopy(g_currentmap, sizeof(g_currentmap), mapName);
 }
@@ -113,6 +120,9 @@ public int LoadConfig()
     weps.Clear();
     buts.Clear();
     filt.Clear();
+    temp.Clear();
+    math.Clear();
+
     File file = OpenFile(path, "w");
     if(file==null)
     {
@@ -132,19 +142,23 @@ public int LoadConfig()
         int cl = ent.GetNextKey("classname", class, 64);
         if(cl == -1) continue;
         
-        ent.GetNextKey("hammerid", hammer, sizeof(hammer));
         if(strncmp(class, "weapon_", 7) == 0)
         {
-            if(!StrEqual(hammer, "")) weps.Push(i);
+            ent.GetNextKey("hammerid", hammer, sizeof(hammer));
+            if(hammer[0]!='\0') weps.Push(i);
         }
         else if(strncmp(class, "func_button", 11) == 0)
         {
-            int parent = ent.GetNextKey("parentname", paren, 64);
-            if(parent != -1 && !StrEqual(paren, "")) buts.Push(i);
+            int parent = ent.GetNextKey("parentname", paren, sizeof(paren));
+            if(parent != -1 && paren[0]!='\0') buts.Push(i);
         }
         else if(strncmp(class, "filter_activator_name", 21) == 0)
         {
             filt.Push(i);
+        }
+        else if(strncmp(class, "point_template", 14) == 0)
+        {
+            temp.Push(i);
         }
         
         delete ent;
@@ -171,11 +185,12 @@ public int LoadConfig()
     char bhammer[16];
     char filter[64];
     char filterid[16];
+    char templatename[64];
     char output[5][32];
     bool knife;
     bool gameui;
 
-    EntityLumpEntry button;
+    EntityLumpEntry button, template;
     int index = 0;
     // Go through weapons
     for(int i = 0; i < weps.Length; i++)
@@ -185,6 +200,7 @@ public int LoadConfig()
         bhammer[0] = '\0';
         filter[0] = '\0';
         filterid[0] = '\0';
+        templatename[0] = '\0';
         knife = false;
         gameui = false;
         ent = EntityLump.Get(weps.Get(i));
@@ -218,39 +234,76 @@ public int LoadConfig()
         {
             button = EntityLump.Get(buts.Get(b));
             button.GetNextKey("parentname", paren, 64);
-            if(StrEqual(paren, targe))
+            if(!StrEqual(paren, targe))
             {
-                button.GetNextKey("hammerid", bhammer, sizeof(bhammer));
-                button.GetNextKey("filtername", filter, sizeof(filter));
-                int fi = button.GetNextKey("OnPressed", val, sizeof(val));
-                while(fi != -1)
-                {
-                    ExplodeString(val, "", output, 5, 32, true);
-                    if(StrEqual(output[1], "TestActivator")) break;
-                    fi = button.GetNextKey("OnPressed", val, sizeof(val), fi);
-                }
-
-                if(fi != -1)
-                {
-                    EntityLumpEntry filterr;
-                    char ftargetname[64];
-                    for(int f = 0; f < filt.Length; f++)
-                    {
-                        filterr = EntityLump.Get(filt.Get(f));
-                        filterr.GetNextKey("targetname", ftargetname, sizeof(ftargetname));
-                        if(!StrEqual(ftargetname, output[0])) continue;
-
-                        filterr.GetNextKey("filtername", filter, sizeof(filter));
-                        filterr.GetNextKey("hammerid", filterid, sizeof(filterid));
-                        break;
-                    }
-                    delete filterr;
-                }
-
                 delete button;
-                break;
+                continue;
             }
+
+            button.GetNextKey("hammerid", bhammer, sizeof(bhammer));
+            button.GetNextKey("filtername", filter, sizeof(filter));
+            int fi = button.GetNextKey("OnPressed", val, sizeof(val));
+            while(fi != -1)
+            {
+                ExplodeString(val, "", output, 5, 32, true);
+                if(StrEqual(output[1], "TestActivator")) break;
+                fi = button.GetNextKey("OnPressed", val, sizeof(val), fi);
+            }
+
+            if(fi != -1)
+            {
+                EntityLumpEntry filterr;
+                char ftargetname[64];
+                for(int f = 0; f < filt.Length; f++)
+                {
+                    filterr = EntityLump.Get(filt.Get(f));
+                    filterr.GetNextKey("targetname", ftargetname, sizeof(ftargetname));
+                    if(!StrEqual(ftargetname, output[0])) continue;
+
+                    filterr.GetNextKey("filtername", filter, sizeof(filter));
+                    filterr.GetNextKey("hammerid", filterid, sizeof(filterid));
+                    break;
+                }
+                delete filterr;
+            }
+
             delete button;
+        }
+
+        // find pt_spawner
+        if(mode == DarkerZ)
+        {
+            bool found;
+            for(int t = 0; t < temp.Length; t++)
+            {
+                if(found) break;
+                template = EntityLump.Get(temp.Get(t));
+                for(int u = 0; u < template.Length; u++)
+                {
+                    template.Get(u, key, 64, val, 128);
+                    if(StrEqual(key, "targetname")) strcopy(templatename, sizeof(templatename), val);
+                    else if(!found && strncmp(key, "Template", 8) == 0)
+                    {
+                        if(StrEqual(val, targe))
+                        {
+                            found = true;
+                        }
+                        else //check wildcarding
+                        {
+                            int len = strlen(val);
+                            if(val[len-1] == '*')
+                            {
+                                if(strncmp(val, targe, len-1) == 0) // matched wildcard
+                                {
+                                    found = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                delete template;
+            }
         }
 
         file.WriteLine("\t\"%d\"", index);
@@ -321,7 +374,7 @@ public int LoadConfig()
                 file.WriteLine("\t\t\"trigger\"         \"0\"");
                 file.WriteLine("\t\t\"physbox\"         \"false\"");
                 file.WriteLine("\t\t");
-                file.WriteLine("\t\t\"pt_spawner\"      \"\"");
+                file.WriteLine("\t\t\"pt_spawner\"      \"%s\"", templatename);
                 file.WriteLine("\t\t\"use_priority\"    \"true\"");
             }
             case Mapea:
